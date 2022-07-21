@@ -2,9 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/TT-Online.iml" filepath="$PROJECT_DIR$/TT-Online.iml" />
       <module fileurl="file://$PROJECT_DIR$/TT_Backend/TT_Backend.iml" filepath="$PROJECT_DIR$/TT_Backend/TT_Backend.iml" />
       <module fileurl="file://$PROJECT_DIR$/tt-web-app.iml" filepath="$PROJECT_DIR$/tt-web-app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tt_online.iml" filepath="$PROJECT_DIR$/tt_online.iml" />
     </modules>
   </component>
 </project>

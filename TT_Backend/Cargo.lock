@@ -3,17 +3,6 @@
 version = 3
 
 [[package]]
-name = "TT-Online"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "futures-util",
- "log",
- "tokio",
- "tokio-tungstenite",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,6 +573,17 @@ dependencies = [
  "log",
  "tokio",
  "tungstenite",
+]
+
+[[package]]
+name = "tt_online"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures-util",
+ "log",
+ "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "TT-Online"
+name = "tt_online"
 version = "0.1.0"
 edition = "2021"
 
