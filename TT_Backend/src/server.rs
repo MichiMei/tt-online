@@ -1,3 +1,11 @@
+//!
+//! This is a async backend server.
+//! It listens on one port for incoming websocket connections from clients using the WebApp and on
+//! another port for incoming tcp connections by host(s) using the HostApp.
+//! An arbitrary number of clients can connect to the server but only one host. If a new one tries
+//! to connect, the old one gets disconnected (to prevent waiting for its timeout)
+//!
+
 use std::collections::HashMap;
 use std::io::Error;
 use std::io::ErrorKind::ConnectionReset;
