@@ -10,26 +10,34 @@ public class Connection {
     private final DataOutputStream out;
 
     public Connection(String ip, int port) {
-        try (Socket socket = new Socket(ip, port)) {
-            //out = new ObjectOutputStream(socket.getOutputStream());
+        try {
+            Socket socket = new Socket(ip, port);
+
+            System.out.println("Connected to Host: " + socket.getLocalAddress() + ":" + socket.getLocalPort());
             out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
+
             Thread reader = new Thread(new Receiver(in));
             reader.start();
+            System.out.println("Reader Thread started");
+
+            writeJson("Test");
         } catch (IOException e) {
+            // TODO
             throw new RuntimeException(e);
         }
     }
 
 
     public void writeJson(String json) throws IOException {
+        System.out.println("Sending Json " + json);
         byte[] utf8 = json.getBytes(StandardCharsets.UTF_8);
         int length = utf8.length;
-        assert(Integer.SIZE == 32);
-        out.write(length);
+        System.out.println("length " + length);
+
+        out.writeInt(length);
         out.write(utf8);
         out.flush();
-        // TODO check if rust parses length and 'json' correctly
     }
 
     public void closeConnection() throws IOException {
@@ -52,9 +60,11 @@ public class Connection {
                     length = in.readInt();
                 } catch (EOFException e) {
                     // TODO connection closed
+                    System.out.println("Received EOF");
                     return ;
                 } catch (IOException e) {
                     // TODO handle exception
+                    System.out.println("IOException: " + e.getMessage());
                     continue;
                 }
                 byte[] utf8;
@@ -65,6 +75,7 @@ public class Connection {
                     continue;
                 }
                 String json = new String(utf8, StandardCharsets.UTF_8);
+                System.out.println("Message decoded: " + json);
                 // TODO callback json
             }
         }
