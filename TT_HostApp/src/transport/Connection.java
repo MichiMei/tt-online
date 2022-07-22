@@ -20,8 +20,6 @@ public class Connection {
             Thread reader = new Thread(new Receiver(in));
             reader.start();
             System.out.println("Reader Thread started");
-
-            writeJson("Test");
         } catch (IOException e) {
             // TODO
             throw new RuntimeException(e);
