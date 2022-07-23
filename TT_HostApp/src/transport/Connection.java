@@ -6,24 +6,26 @@ import java.nio.charset.StandardCharsets;
 
 public class Connection {
 
-    //private ObjectOutputStream out;
+    public interface ConnectionControllerCallbacks {
+
+        void messageReceived(String json);
+
+    }
+
     private final DataOutputStream out;
+    private ConnectionControllerCallbacks cb;
 
-    public Connection(String ip, int port) {
-        try {
-            Socket socket = new Socket(ip, port);
+    public Connection(ConnectionControllerCallbacks cb, String ip, int port) throws IOException {
+        this.cb = cb;
+        Socket socket = new Socket(ip, port);
 
-            System.out.println("Connected to Host: " + socket.getLocalAddress() + ":" + socket.getLocalPort());
-            out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
+        System.out.println("Connected to Host: " + socket.getLocalAddress() + ":" + socket.getLocalPort());
+        out = new DataOutputStream(socket.getOutputStream());
+        DataInputStream in = new DataInputStream(socket.getInputStream());
 
-            Thread reader = new Thread(new Receiver(in));
-            reader.start();
-            System.out.println("Reader Thread started");
-        } catch (IOException e) {
-            // TODO
-            throw new RuntimeException(e);
-        }
+        Thread reader = new Thread(new Receiver(in, cb));
+        reader.start();
+        System.out.println("Reader Thread started");
     }
 
 
@@ -45,9 +47,11 @@ public class Connection {
     static class Receiver implements Runnable {
 
         private final DataInputStream in;
+        private final ConnectionControllerCallbacks cb;
 
-        public Receiver(DataInputStream in) {
+        public Receiver(DataInputStream in, ConnectionControllerCallbacks cb) {
             this.in = in;
+            this.cb = cb;
         }
 
         @Override
@@ -74,7 +78,8 @@ public class Connection {
                 }
                 String json = new String(utf8, StandardCharsets.UTF_8);
                 System.out.println("Message decoded: " + json);
-                // TODO callback json
+
+                cb.messageReceived(json);
             }
         }
 
