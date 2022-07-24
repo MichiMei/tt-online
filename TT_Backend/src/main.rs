@@ -6,20 +6,20 @@ const TCP_PORT: u16 = 8081;
 
 mod server;
 
-/*#[tokio::main(flavor = "current_thread")]
+
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Error> {
     let _server = server::run(IP, WS_PORT, TCP_PORT).await;
     Ok(())
-}*/
+}
 
 
-use serde_json::{json, Value};
-use crate::server::messages::ClientMessages;
 
+/*
+use crate::server::messages::ClientMessage;
 fn main() {
-    let mut json = json!(null);
-    println!("{}", json.to_string());
-    json["name"] = json!["Michi"];
-    println!("{}", json.to_string());
+    let x = ClientMessage::Input {content: String::from("test")};
+    print!("{}", x);
 
 }
+*/
