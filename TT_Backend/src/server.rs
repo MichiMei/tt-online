@@ -22,6 +22,9 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 
+pub mod networking;
+pub mod messages;
+
 const CHANNEL_SIZE: usize = 16;
 
 enum InternalMessage {
@@ -404,9 +407,15 @@ async fn tcp_listen(channel: Sender<InternalMessage>, mut reader: OwnedReadHalf,
             }
         };
 
-        let message_type = json_obj["type"].to_string();
+        let message_type = match json_obj["type"].as_str() {
+            Some(v) => v,
+            None => {
+                error!("tcp_listen(..): message does not contain 'type'");
+                continue
+            }
+        };
 
-        match message_type.as_str() {
+        match message_type {
             "\"Update\"" => {
                 info!("tcp_listen(..): received HostUpdate from {}\nmsg: {}", address, json_str);
                 match channel.send(InternalMessage::HostUpdate{address, msg: json_str}).await {
@@ -428,3 +437,105 @@ async fn tcp_listen(channel: Sender<InternalMessage>, mut reader: OwnedReadHalf,
 
     }
 }
+
+
+/// Listens on the given stream for the 'Login' message
+/// All messages up to this point will be dropped (except 'Disconnecting')
+/// As soon as a correct 'Login' message is received, the ClientConnected internal message is triggered
+async fn client_login(channel: Sender<InternalMessage>, stream: TcpStream, address: SocketAddr) {
+    /*info!("client_login(..): client {} connected", address);
+
+    // upgrade to websocket
+    let ws_stream = match tokio_tungstenite::accept_async(stream).await {
+        Ok(v) => v,
+        Err(e) => {
+            warn!("client_login(..): websocket handshake failed\nclient: {}\nmsg: {:?}", address, e);
+            return
+        }
+    };
+    let (mut ws_write, mut ws_read) = ws_stream.split();
+
+    // waiting for login
+    let login_msg;
+    loop {
+        let next_msg = match websocket_next_json(&mut ws_read).await {
+            Ok(v) => v,
+            Err(_) => {
+                warn!("client_login(..): client {} closed socket! closing connection", address);
+                match ws_write.close().await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("client_login(..): closing socket to {} failed\nmsg: {}", address, e);
+
+                    }
+                };
+                match ws_write.close().await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("client_login(..): closing socket to {} failed\nmsg: {:?}", address, e);
+
+                    }
+                };
+            }
+        };
+
+        let message_type = match next_msg["type"].as_str(){
+            Some(v) => v,
+            None => {
+                error!("client_login(..): message contains no 'type', dropping!");
+                continue
+            }
+        };
+
+        if message_type != "Login" {
+            error!("client_login(..): message 'type' ({}) is wrong, dropping!", message_type);
+            continue
+        }
+
+
+
+    }
+
+*/
+}
+/*
+/// Listens on the given websocket and returns the next parsable json
+/// If the socket gets closed, it returns Err, otherwise Ok(json)
+async fn websocket_next_json(mut reader: &mut SplitStream<WebSocketStream<TcpStream>>) -> Result<Value, ()> {
+    // TODO find out how closed websocket behaves and return Err(())
+
+    loop {
+        let result = match reader.next().await{
+            Some(res) => res,
+            None => {
+                error!("websocket_next_json(..): returned None\nclient: {}\nprobably closed?", address);
+                continue
+            }
+        };
+        match result {
+            Ok(msg) => {
+                info!("websocket_next_json(..): message received\nclient: {}\nmsg: {}", address, msg);
+                if !msg.is_text() {
+                    warn!("websocket_next_json(..): message ist not text. Dropping message!");
+                    continue
+                }
+                let str_msg = msg.into_text().expect("websocket_next_json(..): impl error: message should have been convertible");
+
+                let json_obj: Value = match serde_json::from_str(&str_msg) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("websocket_next_json(..): parsing json failed\nmsg: {}", e);
+                        continue;
+                    }
+                };
+                Ok(json_obj)
+            }
+            Err(e) => {
+                error!("websocket_listen(..): returned Err\nclient: {}\nmsg: {:?}", address, e);
+                continue
+            }
+        }
+    }
+}
+
+*/
