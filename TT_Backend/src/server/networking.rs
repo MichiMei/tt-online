@@ -1,3 +1,15 @@
+#![allow(dead_code)]
+
+use std::io::Error;
+use std::net::SocketAddr;
+use futures_util::stream::SplitSink;
+use tokio::net::tcp::OwnedWriteHalf;
+use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::WebSocketStream;
+use crate::server::messages::BackendMessage;
+use crate::server::networking::tcp_sockets::{host_close_connection, host_send_message};
+use crate::server::networking::websockets::{client_close_connection, client_send_message};
 
 pub const DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY: &str = "Connection closed gracefully by client";
 pub const DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY: &str = "Connection closed forcefully by client";
@@ -7,8 +19,67 @@ pub const DISCONNECT_REASON_HOST_OTHER: &str = "Another host connected";
 pub const DISCONNECT_REASON_VIOLATION: &str = "Protocol violation";
 pub const DISCONNECT_REASON_SEND_FAILED: &str = "Sending failed";
 
+#[derive(Debug)]
+pub struct HostConnection {
+    address: SocketAddr,
+    write: OwnedWriteHalf,
+}
+
+impl HostConnection {
+    pub fn get_address(&self) -> SocketAddr {
+        self.address.clone()
+    }
+
+    pub fn get_address_as_str(&self) -> String {
+        self.address.to_string()
+    }
+
+    pub async fn send_message(&mut self, msg: BackendMessage) -> Result<(), Error> {
+        host_send_message(&mut self.write, msg).await
+    }
+
+    pub async fn close(self, reason: &str) {
+        host_close_connection(self.write, self.address, reason).await
+    }
+
+    pub fn new(address: SocketAddr, write: OwnedWriteHalf) -> Self {
+        HostConnection{address, write }
+    }
+}
 
 
+#[derive(Debug)]
+pub struct ClientConnection {
+    name: String,
+    address: SocketAddr,
+    write: SplitSink<WebSocketStream<TcpStream>, Message>,
+}
+
+impl ClientConnection {
+    pub fn get_address(&self) -> SocketAddr {
+        self.address.clone()
+    }
+
+    pub fn get_address_as_str(&self) -> String {
+        self.address.to_string()
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub async fn send_message(&mut self, msg: BackendMessage) -> Result<(), tokio_tungstenite::tungstenite::Error> {
+        client_send_message(&mut self.write, msg).await
+    }
+
+    pub async fn close(self, reason: &str) {
+        client_close_connection(self.write, self.address, reason).await
+    }
+
+    pub fn new(name: String, address: SocketAddr, write: SplitSink<WebSocketStream<TcpStream>, Message>) -> Self {
+        ClientConnection{ name, address, write }
+    }
+}
 
 /// Useful functions to interact with clients connected via websocket
 pub mod websockets {
@@ -22,7 +93,7 @@ pub mod websockets {
     use tokio_tungstenite::WebSocketStream;
     use crate::server::InternalMessage;
     use crate::server::messages::{BackendMessage, ClientMessage, encode_backend_msg, parse_client_msg};
-    use crate::server::networking::{DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION};
+    use crate::server::networking::{ClientConnection, DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION};
 
     /// Create a listener on the websocket port waiting for client connections
     pub async fn create_client_listener(channel: Sender<InternalMessage>, ip: &str, port: u16) {
@@ -92,7 +163,8 @@ pub mod websockets {
             match tmp_msg {
                 ClientMessage::ClientLogin {name} => {
                     info!("client_connecting(..): Client {} sent 'ClientLogin'.", address);
-                    channel.send(InternalMessage::ClientConnected{write: ws_write, read: ws_read, address, name}).await.expect("client_connecting(..): Sending internal message failed!");
+                    let client = ClientConnection::new(name, address, ws_write);
+                    channel.send(InternalMessage::ClientConnected{read: ws_read, client}).await.expect("client_connecting(..): Sending internal message failed!");
                     return
                 }
                 ClientMessage::Disconnect {reason} => {
