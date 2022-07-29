@@ -32,6 +32,9 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Connect
     @Override
     public void activityStarted(int index) {
         // TODO handle activity started
+
+        // create activityController
+            // creates activityGui
     }
 
     public interface ActivityController {

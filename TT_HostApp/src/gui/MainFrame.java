@@ -1,5 +1,7 @@
 package gui;
 
+import gui.activities.FastReadPanel;
+
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 import java.awt.*;
@@ -14,7 +16,7 @@ public class MainFrame extends JFrame {
     }
 
     public static void main(String[] args) {
-        /*MainFrame mainFrame = */new MainFrame(null, 1);
+        MainFrame mainFrame = new MainFrame(null, 1);
     }
 
     private JPanel panelMain;
@@ -41,7 +43,8 @@ public class MainFrame extends JFrame {
         setContentPane(panelMain);
 
         // INNER CONTENT
-        panelContent.add(new ActivitySelection(cb, activityCount), BorderLayout.CENTER);
+        //panelContent.add(new ActivitySelection(cb, activityCount), BorderLayout.CENTER);
+        panelContent.add(new FastReadPanel(), BorderLayout.CENTER);
 
         // CONNECTED USERS LIST
         connectedUsers = new DefaultListModel<>();  // replace with SortedListModel: https://www.oracle.com/technical-resources/articles/javase/sorted-jlist.html
