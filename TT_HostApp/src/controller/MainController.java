@@ -1,5 +1,7 @@
 package controller;
 
+import controller.activities.ActivityController;
+import controller.activities.ActivityControllerFactory;
 import gui.MainFrame;
 import transport.Connection;
 
@@ -9,6 +11,7 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Connect
 
     private final MainFrame gui;
     private final Connection connection;
+    private ActivityController activityController = null;
 
     private static final int ACTIVITY_COUNT = 1;
 
@@ -26,18 +29,29 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Connect
 
     @Override
     public void messageReceived(String json) {
-        // TODO handle message
+        // TODO parse json
+        String name = "name_mock";
+        String address = "address_mock";
+        String content = "content_mock";
+        if (activityController != null) {
+            activityController.inputReceived(address, name, content);
+        }
     }
 
     @Override
     public void activityStarted(int index) {
-        // TODO handle activity started
-
-        // create activityController
-            // creates activityGui
+        try {
+            activityController = ActivityControllerFactory.createActivityController(gui, index);
+        } catch (ActivityControllerFactory.BadActivityIndexException e) {
+            System.err.println("BadActivityIndex");
+            activityEnded();
+        }
     }
 
-    public interface ActivityController {
-        void inputReceived(String input);
+    @Override
+    public void activityEnded() {
+        System.out.println("MainController::activityEnded()");
+        activityController = null;
+        gui.setActivitySelection();
     }
 }

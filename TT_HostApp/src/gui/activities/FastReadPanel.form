@@ -26,7 +26,7 @@
           <grid row="3" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <text resource-bundle="Resources/StringLiterals" key="Duration"/>
+          <text resource-bundle="resources/StringLiterals" key="Duration"/>
         </properties>
       </component>
       <grid id="ee30a" binding="timeSelectionPanel" layout-manager="BorderLayout" hgap="0" vgap="0">
@@ -42,7 +42,7 @@
           <grid row="3" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <text resource-bundle="Resources/StringLiterals" key="millisecond_abr"/>
+          <text resource-bundle="resources/StringLiterals" key="millisecond_abr"/>
         </properties>
       </component>
       <hspacer id="db089">
@@ -55,7 +55,7 @@
           <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <text resource-bundle="Resources/StringLiterals" key="Status"/>
+          <text resource-bundle="resources/StringLiterals" key="Status"/>
         </properties>
       </component>
       <component id="ec814" class="javax.swing.JLabel">
@@ -63,7 +63,7 @@
           <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <text resource-bundle="Resources/StringLiterals" key="Separator"/>
+          <text resource-bundle="resources/StringLiterals" key="Separator"/>
         </properties>
       </component>
       <component id="818f" class="javax.swing.JComboBox" binding="separatorSelection">
@@ -85,7 +85,7 @@
           <grid row="4" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <text resource-bundle="Resources/StringLiterals" key="Quit"/>
+          <text resource-bundle="resources/StringLiterals" key="Quit"/>
         </properties>
       </component>
       <grid id="905d0" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
@@ -98,19 +98,19 @@
           <component id="45f21" class="javax.swing.JButton" binding="previousButton" default-binding="true">
             <constraints/>
             <properties>
-              <text resource-bundle="Resources/StringLiterals" key="Previous"/>
+              <text resource-bundle="resources/StringLiterals" key="Previous"/>
             </properties>
           </component>
           <component id="6c014" class="javax.swing.JButton" binding="displayButton" default-binding="true">
             <constraints/>
             <properties>
-              <text resource-bundle="Resources/StringLiterals" key="Display"/>
+              <text resource-bundle="resources/StringLiterals" key="Display"/>
             </properties>
           </component>
           <component id="8bb4" class="javax.swing.JButton" binding="nextButton" default-binding="true">
             <constraints/>
             <properties>
-              <text resource-bundle="Resources/StringLiterals" key="Next"/>
+              <text resource-bundle="resources/StringLiterals" key="Next"/>
             </properties>
           </component>
         </children>

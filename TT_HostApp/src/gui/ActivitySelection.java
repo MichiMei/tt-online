@@ -18,7 +18,7 @@ public class ActivitySelection extends JPanel {
     private JPanel mainPanel;
     private JButton buttonStartActivity;
     private JList<String> listActivities;
-    private final ResourceBundle strLiterals = ResourceBundle.getBundle("Resources/StringLiterals");
+    private final ResourceBundle strLiterals = ResourceBundle.getBundle("resources/StringLiterals");
     private final MainFrame.GuiControllerCallbacks cb;
 
     public ActivitySelection(MainFrame.GuiControllerCallbacks cb, int activityCount) {
