@@ -9,7 +9,8 @@ mod server;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Error> {
-    let _server = server::run(IP, WS_PORT, TCP_PORT).await;
+    let mut server = server::Server::new();
+    server.run(IP, WS_PORT, TCP_PORT).await;
     Ok(())
 }
 

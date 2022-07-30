@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 
-use std::io::Error;
 use std::net::SocketAddr;
 use futures_util::stream::SplitSink;
+use log::warn;
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
+use crate::server::InternalMessage;
 use crate::server::messages::BackendMessage;
 use crate::server::networking::tcp_sockets::{host_close_connection, host_send_message};
 use crate::server::networking::websockets::{client_close_connection, client_send_message};
@@ -19,10 +21,13 @@ pub const DISCONNECT_REASON_HOST_OTHER: &str = "Another host connected";
 pub const DISCONNECT_REASON_VIOLATION: &str = "Protocol violation";
 pub const DISCONNECT_REASON_SEND_FAILED: &str = "Sending failed";
 
+type WSSink = SplitSink<WebSocketStream<TcpStream>, Message>;
+
 #[derive(Debug)]
 pub struct HostConnection {
     address: SocketAddr,
     write: OwnedWriteHalf,
+    channel: Sender<InternalMessage>,
 }
 
 impl HostConnection {
@@ -34,16 +39,24 @@ impl HostConnection {
         self.address.to_string()
     }
 
-    pub async fn send_message(&mut self, msg: BackendMessage) -> Result<(), Error> {
-        host_send_message(&mut self.write, msg).await
+    pub async fn send_message(&mut self, msg: BackendMessage) {
+        match host_send_message(&mut self.write, msg).await {
+            Ok(_) => {}
+            Err(e) => {
+                warn!("host_send_message(..): Sending message to {} failed!\nError: {}",
+                    self.address, e);
+                let int_msg = InternalMessage::HostCloseConnection { address: self.address, reason: DISCONNECT_REASON_SEND_FAILED};
+                self.channel.send(int_msg).await.expect("host_send_message(..): Sending internal message failed");
+            }
+        }
     }
 
     pub async fn close(self, reason: &str) {
         host_close_connection(self.write, self.address, reason).await
     }
 
-    pub fn new(address: SocketAddr, write: OwnedWriteHalf) -> Self {
-        HostConnection{address, write }
+    pub fn new(address: SocketAddr, write: OwnedWriteHalf, channel: Sender<InternalMessage>) -> Self {
+        HostConnection{ address, write, channel }
     }
 }
 
@@ -52,7 +65,8 @@ impl HostConnection {
 pub struct ClientConnection {
     name: String,
     address: SocketAddr,
-    write: SplitSink<WebSocketStream<TcpStream>, Message>,
+    write: WSSink,
+    channel: Sender<InternalMessage>,
 }
 
 impl ClientConnection {
@@ -68,23 +82,31 @@ impl ClientConnection {
         &self.name
     }
 
-    pub async fn send_message(&mut self, msg: BackendMessage) -> Result<(), tokio_tungstenite::tungstenite::Error> {
-        client_send_message(&mut self.write, msg).await
+    pub async fn send_message(&mut self, msg: BackendMessage) {
+        match client_send_message(&mut self.write, msg).await {
+            Ok(_) => {}
+            Err(e) => {
+                warn!("client_send_message(..): Sending message to {} failed!\nError: {:?}",
+                    self.address, e);
+                let int_msg = InternalMessage::ClientCloseConnection { address: self.address, reason: DISCONNECT_REASON_SEND_FAILED};
+                self.channel.send(int_msg).await.expect("client_send_message(..): Sending internal message failed");
+            }
+        }
     }
 
     pub async fn close(self, reason: &str) {
         client_close_connection(self.write, self.address, reason).await
     }
 
-    pub fn new(name: String, address: SocketAddr, write: SplitSink<WebSocketStream<TcpStream>, Message>) -> Self {
-        ClientConnection{ name, address, write }
+    pub fn new(name: String, address: SocketAddr, write: WSSink, channel: Sender<InternalMessage>) -> Self {
+        ClientConnection{ name, address, write, channel }
     }
 }
 
 /// Useful functions to interact with clients connected via websocket
 pub mod websockets {
     use std::net::SocketAddr;
-    use futures_util::stream::{SplitSink, SplitStream};
+    use futures_util::stream::SplitStream;
     use futures_util::{SinkExt, StreamExt};
     use log::{error, info, warn};
     use tokio::net::{TcpListener, TcpStream};
@@ -93,7 +115,9 @@ pub mod websockets {
     use tokio_tungstenite::WebSocketStream;
     use crate::server::InternalMessage;
     use crate::server::messages::{BackendMessage, ClientMessage, encode_backend_msg, parse_client_msg};
-    use crate::server::networking::{ClientConnection, DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION};
+    use crate::server::networking::{ClientConnection, DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION, WSSink};
+
+    type WSStream = SplitStream<WebSocketStream<TcpStream>>;
 
     /// Create a listener on the websocket port waiting for client connections
     pub async fn create_client_listener(channel: Sender<InternalMessage>, ip: &str, port: u16) {
@@ -163,7 +187,7 @@ pub mod websockets {
             match tmp_msg {
                 ClientMessage::ClientLogin {name} => {
                     info!("client_connecting(..): Client {} sent 'ClientLogin'.", address);
-                    let client = ClientConnection::new(name, address, ws_write);
+                    let client = ClientConnection::new(name, address, ws_write, channel.clone());
                     channel.send(InternalMessage::ClientConnected{read: ws_read, client}).await.expect("client_connecting(..): Sending internal message failed!");
                     return
                 }
@@ -181,7 +205,7 @@ pub mod websockets {
 
     /// Returns the next parsable json message
     /// Will drop non-text or malformed messages
-    pub async fn client_get_next_json(reader: &mut SplitStream<WebSocketStream<TcpStream>>, address: SocketAddr) -> Option<ClientMessage> {
+    pub async fn client_get_next_json(reader: &mut WSStream, address: SocketAddr) -> Option<ClientMessage> {
         // TODO find out how closed behaviour and return None
         loop {
             // Get next message
@@ -216,7 +240,7 @@ pub mod websockets {
     }
 
     /// Closes the connection, ignoring possible errors
-    pub async fn client_close_connection(mut writer: SplitSink<WebSocketStream<TcpStream>, Message>, address: SocketAddr, reason: &str) {
+    pub async fn client_close_connection(mut writer: WSSink, address: SocketAddr, reason: &str) {
         let reason = String::from(reason);
         match client_send_message(&mut writer, BackendMessage::Disconnect {reason}).await {
             Ok(_) => {}
@@ -235,7 +259,7 @@ pub mod websockets {
     /// Send the BackendMessage to the client (connected to the given websocket)
     /// Transforms the BackendMessage to the correct format.
     /// Forwards any sending errors
-    pub async fn client_send_message(writer: &mut SplitSink<WebSocketStream<TcpStream>, Message>, msg_enum: BackendMessage) -> Result<(), Error> {
+    pub async fn client_send_message(writer: &mut WSSink, msg_enum: BackendMessage) -> Result<(), Error> {
         let msg_str = encode_backend_msg(msg_enum);
         let msg = Message::from(msg_str);
         writer.send(msg).await
@@ -243,7 +267,7 @@ pub mod websockets {
 
     /// Reads all messages from the given socket
     /// Each valid message triggers the according event
-    pub async fn client_socket_reader(channel: Sender<InternalMessage>, mut reader: SplitStream<WebSocketStream<TcpStream>>, address: SocketAddr) {
+    pub async fn client_socket_reader(channel: Sender<InternalMessage>, mut reader: WSStream, address: SocketAddr) {
         // Read forever (until closed by client)
         loop {
             // Get next message
