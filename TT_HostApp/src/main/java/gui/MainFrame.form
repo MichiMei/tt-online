@@ -37,7 +37,7 @@
               <component id="22b7" class="javax.swing.JLabel">
                 <constraints border-constraint="North"/>
                 <properties>
-                  <text resource-bundle="resources/StringLiterals" key="Connected_Users"/>
+                  <text resource-bundle="StringLiterals" key="Connected_Users"/>
                 </properties>
               </component>
               <scrollpane id="2fdc9">

@@ -1,5 +1,7 @@
 package gui;
 
+import controller.activities.ActivityControllerFactory;
+
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 import java.awt.*;
@@ -15,7 +17,7 @@ public class MainFrame extends JFrame {
     }
 
     public static void main(String[] args) {
-        /*MainFrame mainFrame = */new MainFrame(null, 1);
+        /*MainFrame mainFrame = */new MainFrame(null, ActivityControllerFactory.getActivityCount());
     }
 
     private JPanel panelMain;
@@ -24,9 +26,9 @@ public class MainFrame extends JFrame {
     private JSplitPane splitPane;
     private final DefaultListModel<String> connectedUsers;
 
-    private final ResourceBundle strLiterals = ResourceBundle.getBundle("resources/StringLiterals");
+    private final ResourceBundle strLiterals = ResourceBundle.getBundle("StringLiterals");
     private final GuiControllerCallbacks cb;
-    int activityCount;
+    private final int activityCount;
 
     /**
      * Creates a new MainFrame for the GUI

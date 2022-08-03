@@ -1,5 +1,7 @@
 package gui;
 
+import controller.activities.ActivityControllerFactory;
+
 import javax.swing.*;
 import java.awt.*;
 import java.util.ResourceBundle;
@@ -8,7 +10,7 @@ public class ActivitySelection extends JPanel {
 
     public static void main(String[] args) {
         JFrame window = new JFrame();
-        ActivitySelection activitySelection = new ActivitySelection(null, 1);
+        ActivitySelection activitySelection = new ActivitySelection(null, ActivityControllerFactory.getActivityCount());
         window.setContentPane(activitySelection);
         window.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         window.setSize(1000,750);
@@ -18,7 +20,7 @@ public class ActivitySelection extends JPanel {
     private JPanel mainPanel;
     private JButton buttonStartActivity;
     private JList<String> listActivities;
-    private final ResourceBundle strLiterals = ResourceBundle.getBundle("resources/StringLiterals");
+    private final ResourceBundle strLiterals = ResourceBundle.getBundle("StringLiterals");
     private final MainFrame.GuiControllerCallbacks cb;
 
     public ActivitySelection(MainFrame.GuiControllerCallbacks cb, int activityCount) {
@@ -44,11 +46,16 @@ public class ActivitySelection extends JPanel {
     }
 
     private void addActivities(int activityCount) {
+        System.out.println("Add " + activityCount + " activities");
         DefaultListModel<String> listModel = new DefaultListModel<>();
         listActivities.setModel(listModel);
 
         for (int i = 0; i < activityCount; i++) {
-            listModel.addElement(strLiterals.getString("ActivityName" + i));
+            try {
+                listModel.addElement(ActivityControllerFactory.getPrettyActivityName(i));
+            } catch (ActivityControllerFactory.BadActivityIndexException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

@@ -4,8 +4,7 @@ import gui.MainFrame;
 import gui.activities.FastReadPanel;
 
 public class FastReadController implements ActivityController {
-
-    FastReadPanel gui;
+    private final FastReadPanel gui;
 
     public FastReadController(MainFrame mainGui) {
         gui = new FastReadPanel();
