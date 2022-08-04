@@ -6,6 +6,10 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 
 public class FastReadPanel extends JPanel {
+    public interface ControllerCallbacks {
+        void displayPressed(String token);
+    }
+
     private JPanel mainPanel;
     private JTextArea textArea;
     private JComboBox separatorSelection;
@@ -16,10 +20,13 @@ public class FastReadPanel extends JPanel {
     private JLabel statusLabel;
     private JPanel timeSelectionPanel;
 
-    public FastReadPanel() {
+    private final ControllerCallbacks callbacks;
+
+    public FastReadPanel(ControllerCallbacks callbacks) {
         super();
         setLayout(new BorderLayout());
         add(mainPanel, BorderLayout.CENTER);
+        this.callbacks = callbacks;
 
         textArea.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -38,7 +45,14 @@ public class FastReadPanel extends JPanel {
             }
         });
 
+        displayButton.addActionListener(e -> displayPressed());
+
         this.setVisible(true);
+    }
+
+    private void displayPressed() {
+        String token = textArea.getText();
+        callbacks.displayPressed(token);
     }
 
 }

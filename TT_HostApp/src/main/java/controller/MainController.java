@@ -2,12 +2,13 @@ package controller;
 
 import controller.activities.ActivityController;
 import controller.activities.ActivityControllerFactory;
+import controller.activities.ControllerCallbacks;
 import gui.MainFrame;
 import transport.MessageLayer;
 
 import java.io.IOException;
 
-public class MainController implements MainFrame.GuiControllerCallbacks, MessageLayer.MessageLayerToControllerCallbacks {
+public class MainController implements MainFrame.GuiControllerCallbacks, MessageLayer.MessageLayerToControllerCallbacks, ControllerCallbacks {
 
     private final MainFrame gui;
     private final MessageLayer messageLayer;
@@ -57,7 +58,7 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
     @Override
     public void activityStarted(int index) {
         try {
-            activityController = ActivityControllerFactory.createActivityController(gui, index);
+            activityController = ActivityControllerFactory.createActivityController(gui, this, index);
             String activityName = ActivityControllerFactory.getActivityName(index);
             messageLayer.sendStateChange(activityName);
         } catch (ActivityControllerFactory.BadActivityIndexException e) {
@@ -84,4 +85,12 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
         }
     }
 
+    @Override
+    public void sendUpdate(String update) {
+        try {
+            messageLayer.sendUpdate(update);
+        } catch (MessageLayer.SendingFailedException e) {
+            // TODO handle exception
+        }
+    }
 }

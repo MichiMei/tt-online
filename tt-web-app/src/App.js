@@ -6,17 +6,30 @@ const client = new W3CWebSocket('ws://127.0.0.1:8080');
 
 class App extends Component {
 
-  sendHello() {
+  sendLogin() {
     if (client.readyState === client.OPEN) {
-      console.log("sent: Hello World!")
-      client.send("Hello World!");
+      // TODO get real data
+      const name = "mock_name"
+      const type = "ClientLogin"
+      const message_obj = {type:type, name: name}
+      const message_str = JSON.stringify(message_obj)
+
+      console.log("sendLogin(..): " + message_str)
+      client.send(message_str)
     }
   }
 
-  componentWillMount() {
+  sendHello() {
+    if (client.readyState === client.OPEN) {
+      console.log("sent: Hello World!")
+      client.send("{\"type\":\"ClientLogin\",\"name\":\"test_name\"}");
+    }
+  }
+
+  componentDidMount() {
     client.onopen = () => {
-      console.log('WebSocket Client Connected');
-      this.sendHello()
+      console.log('componentDidMount(..): WebSocket Client Connected');
+      this.sendLogin()
     };
     client.onmessage = (message) => {
       console.log("received: " + message.data.toString());

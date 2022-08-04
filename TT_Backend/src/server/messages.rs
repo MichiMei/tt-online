@@ -140,7 +140,7 @@ pub fn encode_backend_msg(msg: BackendMessage) -> String {
             json["type"] = json!("ClientConnected");
             json["name"] = json!(name);
             json["address"] = json!(address);
-            String::from(json.as_str().unwrap())
+            String::from(json.to_string())
         }
         BackendMessage::ClientDisconnected{name, address, reason} => {
             let mut json = json!(null);
@@ -148,13 +148,13 @@ pub fn encode_backend_msg(msg: BackendMessage) -> String {
             json["name"] = json!(name);
             json["address"] = json!(address);
             json["reason"] = json!(reason);
-            String::from(json.as_str().unwrap())
+            String::from(json.to_string())
         }
         BackendMessage::Disconnect {reason} => {
             let mut json = json!(null);
             json["type"] = json!("Disconnecting");
             json["reason"] = json!(reason);
-            String::from(json.as_str().unwrap())
+            String::from(json.to_string())
         }
         BackendMessage::Input{input, name, address} => {
             let mut json = json!(null);
@@ -162,19 +162,19 @@ pub fn encode_backend_msg(msg: BackendMessage) -> String {
             json["input"] = json!(input);
             json["name"] = json!(name);
             json["address"] = json!(address);
-            String::from(json.as_str().unwrap())
+            String::from(json.to_string())
         }
         BackendMessage::Update{content} => {
             let mut json = json!(null);
             json["type"] = json!("Update");
             json["content"] = json!(content);
-            String::from(json.as_str().unwrap())
+            String::from(json.to_string())
         }
         BackendMessage::ChangeState{content} => {
             let mut json = json!(null);
             json["type"] = json!("ChangeState");
             json["content"] = json!(content);
-            String::from(json.as_str().unwrap())
+            String::from(json.to_string())
         }
     }
 }

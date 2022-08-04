@@ -12,9 +12,9 @@ public class ActivityControllerFactory {
         }
     }
 
-    public static ActivityController createActivityController(MainFrame mainGui, int index) throws BadActivityIndexException {
+    public static ActivityController createActivityController(MainFrame mainGui, ControllerCallbacks callbacks, int index) throws BadActivityIndexException {
         return switch (index) {
-            case 0 -> new FastReadController(mainGui);
+            case 0 -> new FastReadController(mainGui, callbacks);
             default -> throw new BadActivityIndexException("Index " + index + " is not implemented");
         };
     }
