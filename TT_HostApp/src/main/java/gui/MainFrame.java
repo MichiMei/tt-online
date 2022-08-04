@@ -1,5 +1,7 @@
 package gui;
 
+import controller.activities.ActivityControllerFactory;
+
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 import java.awt.*;
@@ -11,10 +13,11 @@ public class MainFrame extends JFrame {
 
     public interface GuiControllerCallbacks {
         void activityStarted(int index);
+        void activityEnded();
     }
 
     public static void main(String[] args) {
-        /*MainFrame mainFrame = */new MainFrame(null, 1);
+        /*MainFrame mainFrame = */new MainFrame(null, ActivityControllerFactory.getActivityCount());
     }
 
     private JPanel panelMain;
@@ -23,8 +26,9 @@ public class MainFrame extends JFrame {
     private JSplitPane splitPane;
     private final DefaultListModel<String> connectedUsers;
 
-    private final ResourceBundle strLiterals = ResourceBundle.getBundle("Resources/StringLiterals");
+    private final ResourceBundle strLiterals = ResourceBundle.getBundle("StringLiterals");
     private final GuiControllerCallbacks cb;
+    private final int activityCount;
 
     /**
      * Creates a new MainFrame for the GUI
@@ -34,6 +38,7 @@ public class MainFrame extends JFrame {
         super("TT Host");
 
         this.cb = cb;
+        this.activityCount = activityCount;
 
         initializeWindow();
         initializeMenuBar();
@@ -41,7 +46,7 @@ public class MainFrame extends JFrame {
         setContentPane(panelMain);
 
         // INNER CONTENT
-        panelContent.add(new ActivitySelection(cb, activityCount), BorderLayout.CENTER);
+        setActivitySelection();
 
         // CONNECTED USERS LIST
         connectedUsers = new DefaultListModel<>();  // replace with SortedListModel: https://www.oracle.com/technical-resources/articles/javase/sorted-jlist.html
@@ -73,6 +78,7 @@ public class MainFrame extends JFrame {
         JMenuBar menuBar = new JMenuBar();
         setJMenuBar(menuBar);
 
+        // MENU data //
         JMenu menuData = new JMenu(strLiterals.getString("File"));
         menuBar.add(menuData);
         JMenuItem menuItemSettings = new JMenuItem(strLiterals.getString("Settings"));
@@ -85,6 +91,17 @@ public class MainFrame extends JFrame {
             dispose();
         });
 
+        // MENU activity //
+        JMenu menuActivity = new JMenu(strLiterals.getString("Activity"));
+        menuBar.add(menuActivity);
+        JMenuItem menuItemEndActivity = new JMenuItem(strLiterals.getString("End_Activity"));
+        menuActivity.add(menuItemEndActivity);
+        menuItemEndActivity.addActionListener(e -> {
+            System.out.println("MainFrame::ActivityEndedListener");
+            cb.activityEnded();
+        });
+
+        // MENU help //
         JMenu menuHelp = new JMenu(strLiterals.getString("Help"));
         menuBar.add(menuHelp);
         JMenuItem menuItemAbout = new JMenuItem(strLiterals.getString("About_App"));
@@ -115,6 +132,30 @@ public class MainFrame extends JFrame {
                 return;
             }
             connectedUsers.remove(index);
+        });
+    }
+
+    /**
+     * Replaces the current activityGui with the given one
+     * @param activityGui JPanel to be displayed
+     */
+    public void setActivityGui(JPanel activityGui) {
+        SwingUtilities.invokeLater(() -> {
+            panelContent.removeAll();
+            panelContent.add(activityGui, BorderLayout.CENTER);
+            revalidate();
+        });
+    }
+
+    /**
+     * Replaces the current activityGui with the ActivitySelection
+     */
+    public void setActivitySelection() {
+        System.out.println("MainFrame::setActivitySelection()");
+        SwingUtilities.invokeLater(() -> {
+            panelContent.removeAll();
+            panelContent.add(new ActivitySelection(cb, activityCount), BorderLayout.CENTER);
+            revalidate();
         });
     }
 

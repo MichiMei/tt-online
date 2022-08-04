@@ -19,7 +19,9 @@
               <splitpane position="left"/>
             </constraints>
             <properties/>
-            <border type="none"/>
+            <border type="empty">
+              <size top="10" left="10" bottom="10" right="10"/>
+            </border>
             <children/>
           </grid>
           <grid id="a29ae" layout-manager="BorderLayout" hgap="10" vgap="10">
@@ -35,7 +37,7 @@
               <component id="22b7" class="javax.swing.JLabel">
                 <constraints border-constraint="North"/>
                 <properties>
-                  <text resource-bundle="Resources/StringLiterals" key="Connected_Users"/>
+                  <text resource-bundle="StringLiterals" key="Connected_Users"/>
                 </properties>
               </component>
               <scrollpane id="2fdc9">

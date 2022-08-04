@@ -212,7 +212,7 @@ pub mod websockets {
             let msg = match reader.next().await {
                 None => {
                     error!("client_get_next_json(..): Reader returned None. Probably closed?\nClient: {}", address);
-                    continue
+                    return None
                 }
                 Some(Ok(v)) => v,
                 Some(Err(e)) => {
@@ -228,7 +228,7 @@ pub mod websockets {
             }
 
             // Parse message
-            match parse_client_msg(&msg.clone().into_text().unwrap()) {
+            let parsed = match parse_client_msg(&msg.clone().into_text().unwrap()) {
                 None => {
                     error!("client_get_next_json(..): Message by client {} is no valid json. Dropping!\nMessage: {}", address, msg);
                     continue
@@ -236,6 +236,7 @@ pub mod websockets {
                 Some(v) => v
             };
 
+            return Some(parsed)
         }
     }
 
@@ -389,13 +390,15 @@ pub mod tcp_sockets {
             };
 
             // Parse string to HostMessage
-            match parse_host_msg(&msg_str) {
+            let host_message = match parse_host_msg(&msg_str) {
                 None => {
                     error!("host_get_next_json(..): Message by client {} is no valid json. Dropping!\nMessage: {}", address, msg_str);
                     continue
                 }
                 Some(v) => v
             };
+
+            return Some(host_message)
         }
     }
 
