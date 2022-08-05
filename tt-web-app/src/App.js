@@ -2,7 +2,8 @@
 import React, { Component } from 'react';
 import { w3cwebsocket as W3CWebSocket } from "websocket";
 
-const client = new W3CWebSocket('ws://127.0.0.1:8080');
+//const client = new W3CWebSocket('wss://coding-capricorn.de:8080');
+const client = new W3CWebSocket('wss://localhost:8080');
 
 class App extends Component {
 

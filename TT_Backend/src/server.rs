@@ -18,6 +18,7 @@ use crate::server::messages::BackendMessage;
 use crate::server::networking::{ClientConnection, DISCONNECT_REASON_SEND_FAILED, HostConnection};
 use crate::server::networking::tcp_sockets::{create_host_listener, host_socket_reader};
 use crate::server::networking::websockets::{client_socket_reader, create_client_listener};
+use crate::server::networking::websockets::WsReadHalve;
 
 pub mod networking;
 pub mod messages;
@@ -26,7 +27,7 @@ const CHANNEL_SIZE: usize = 16;
 
 #[derive(Debug)]
 pub enum InternalMessage {
-    ClientConnected{read: SplitStream<WebSocketStream<TcpStream>>, client: ClientConnection},
+    ClientConnected{read: WsReadHalve, client: ClientConnection},
     ClientCloseConnection {address: SocketAddr, reason: &'static str},
     HostConnected{stream: TcpStream, address: SocketAddr},
     HostCloseConnection {address: SocketAddr, reason: &'static str},
@@ -90,7 +91,7 @@ async fn main_task(mut channel_tx: Sender<InternalMessage>, mut channel_rx: Rece
 /// Handles the ClientConnected event
 /// Tries to send current state to the client (closes connection if this fails)
 /// Adds the client to the client container and starts its listener
-async fn handle_client_connected(host: &mut Option<HostConnection>, channel_tx: &mut Sender<InternalMessage>, clients: &mut HashMap<SocketAddr, ClientConnection>, state: Option<BackendMessage>, read: SplitStream<WebSocketStream<TcpStream>>, mut client: ClientConnection) {
+async fn handle_client_connected(host: &mut Option<HostConnection>, channel_tx: &mut Sender<InternalMessage>, clients: &mut HashMap<SocketAddr, ClientConnection>, state: Option<BackendMessage>, read: WsReadHalve, mut client: ClientConnection) {
      info!("handle_client_connected(..): Client {} connected, name: {}", client.get_address_as_str(), client.get_name());
 
     // Send initial state
