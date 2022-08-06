@@ -97,4 +97,9 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
             // TODO handle exception
         }
     }
+
+    @Override
+    public void endActivity() {
+        activityEnded();
+    }
 }
