@@ -76,12 +76,12 @@ impl Server {
                 self.handle_host_connected(stream, address).await,
             InternalMessage::HostCloseConnection {address, reason} =>
                 self.handle_host_close_connection(address, reason).await,
-            InternalMessage::ClientInput {address, content} =>
-                self.handle_client_input(address, content).await,
-            InternalMessage::HostUpdate {address, content} =>
-                self.handle_host_update(address, content).await,
-            InternalMessage::HostChangeState {address, content} =>
-                self.handle_host_change_state(address, content).await,
+            InternalMessage::ClientInput {state_id, address, content} =>
+                self.handle_client_input(state_id, address, content).await,
+            InternalMessage::HostUpdate {state_id, address, content} =>
+                self.handle_host_update(state_id, address, content).await,
+            InternalMessage::HostChangeState {state_id, address, content} =>
+                self.handle_host_change_state(state_id, address, content).await,
         }
 
     }
@@ -159,12 +159,13 @@ impl Server {
         }
     }
 
-    async fn handle_client_input(&mut self, address: SocketAddr, content: String) {
+    async fn handle_client_input(&mut self, state_id: i32, address: SocketAddr, content: String) {
         if let Some(client) = self.clients.get(&address) {
             if let Some(host) = self.host.as_mut() {
                 info!("handle_client_input(..): Client {} ({}) send input\nContent: {}", client.get_name(), address, content);
 
                 let msg = BackendMessage::Input {
+                    state_id,
                     input: content,
                     name: String::from(client.get_name()),
                     address: address.to_string()
@@ -174,25 +175,25 @@ impl Server {
         }
     }
 
-    async fn handle_host_update(&mut self, address: SocketAddr, content: String) {
+    async fn handle_host_update(&mut self, state_id: i32, address: SocketAddr, content: String) {
         if let Some(host) = self.host.as_ref() {
             if host.get_address() == address {
                 if self.clients.is_empty() {
                     warn!("handle_host_update(..): No clients connected");
                 } else {
                     info!("handle_host_update(..): Host {} send update\nContent: {}", host.get_address(), content);
-                    let msg = BackendMessage::Update {content};
+                    let msg = BackendMessage::Update {state_id, content};
                     self.write_to_all_clients(msg).await;
                 }
             }
         }
     }
 
-    async fn handle_host_change_state(&mut self, address: SocketAddr, content: String) {
+    async fn handle_host_change_state(&mut self, state_id: i32, address: SocketAddr, content: String) {
         if let Some(host) = self.host.as_ref() {
             if host.get_address() == address {
                 info!("handle_host_change_state(..): Host {} send change state\nContent: {}", host.get_address(), content);
-                let msg = BackendMessage::ChangeState {content};
+                let msg = BackendMessage::ChangeState {state_id, content};
 
                 self.state = Some(msg.clone());
 
@@ -222,7 +223,7 @@ pub enum InternalMessage {
     ClientCloseConnection {address: SocketAddr, reason: &'static str},
     HostConnected{stream: TcpStream, address: SocketAddr},
     HostCloseConnection {address: SocketAddr, reason: &'static str},
-    ClientInput{address: SocketAddr, content: String},
-    HostUpdate{address : SocketAddr, content: String},
-    HostChangeState{address : SocketAddr, content: String},
+    ClientInput{state_id: i32, address: SocketAddr, content: String},
+    HostUpdate{state_id: i32, address : SocketAddr, content: String},
+    HostChangeState{state_id: i32, address : SocketAddr, content: String},
 }
