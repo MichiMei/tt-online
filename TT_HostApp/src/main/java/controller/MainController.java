@@ -7,12 +7,15 @@ import gui.MainFrame;
 import transport.MessageLayer;
 
 import java.io.IOException;
+import java.util.Random;
 
 public class MainController implements MainFrame.GuiControllerCallbacks, MessageLayer.MessageLayerToControllerCallbacks, ControllerCallbacks {
 
     private final MainFrame gui;
     private final MessageLayer messageLayer;
+    private final Random random = new Random();
     private ActivityController activityController = null;
+    private int stateId;
 
     public MainController(String ip, int port) {
         gui = new MainFrame(this, ActivityControllerFactory.getActivityCount());
@@ -43,8 +46,8 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
     }
 
     @Override
-    public void handleClientInput(String name, String address, String input) {
-        if (activityController != null) {
+    public void handleClientInput(int stateId, String name, String address, String input) {
+        if (activityController != null && stateId == this.stateId) {
             activityController.inputReceived(address, name, input);
         }
     }
@@ -59,8 +62,9 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
     public void activityStarted(int index) {
         try {
             activityController = ActivityControllerFactory.createActivityController(gui, this, index);
+            stateId = random.nextInt();
             String activityName = ActivityControllerFactory.getActivityName(index);
-            messageLayer.sendStateChange(activityName);
+            messageLayer.sendStateChange(stateId, activityName);
         } catch (ActivityControllerFactory.BadActivityIndexException e) {
             System.err.println("BadActivityIndex");
             activityEnded();
@@ -78,7 +82,7 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
         gui.setActivitySelection();
         String activityName = ActivityControllerFactory.getActivityEndedName();
         try {
-            messageLayer.sendStateChange(activityName);
+            messageLayer.sendStateChange(0, activityName);
         } catch (MessageLayer.SendingFailedException e) {
             // TODO notify user
             // TODO Ask if reconnect should be tried
@@ -88,7 +92,7 @@ public class MainController implements MainFrame.GuiControllerCallbacks, Message
     @Override
     public void sendUpdate(String update) {
         try {
-            messageLayer.sendUpdate(update);
+            messageLayer.sendUpdate(stateId, update);
         } catch (MessageLayer.SendingFailedException e) {
             // TODO handle exception
         }

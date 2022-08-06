@@ -15,7 +15,7 @@ public class MessageLayer  {
         void handleClientConnected(String name, String address);
         void handleClientDisconnected(String name, String address, String reason);
         void handleBackendDisconnect(String reason);
-        void handleClientInput(String name, String address, String input);
+        void handleClientInput(int stateId, String name, String address, String input);
         void handleOwnDisconnect(String reason);
     }
 
@@ -35,9 +35,10 @@ public class MessageLayer  {
      * @param update content of the update message
      * @throws SendingFailedException thrown if sending fails and socket was closed
      */
-    public void sendUpdate(String update) throws SendingFailedException {
+    public void sendUpdate(int stateId, String update) throws SendingFailedException {
         JSONObject json = new JSONObject();
         json.put("type", "Update");
+        json.put("state_id", stateId);
         json.put("content", update);
         String message = json.toString();
 
@@ -54,9 +55,10 @@ public class MessageLayer  {
      * @param state content of the state change message
      * @throws SendingFailedException thrown if sending fails and socket was closed
      */
-    public void sendStateChange(String state) throws SendingFailedException {
+    public void sendStateChange(int stateId, String state) throws SendingFailedException {
         JSONObject json = new JSONObject();
         json.put("type", "ChangeState");
+        json.put("state_id", stateId);
         json.put("content", state);
         String message = json.toString();
 
@@ -202,10 +204,11 @@ public class MessageLayer  {
 
         private void parseInput(JSONObject json) throws JSONParseException {
             try {
+                int stateId = json.getInt("state_id");
                 String name = json.getString("name");
                 String address = json.getString("address");
                 String input = json.getString("content");
-                callbacks.handleClientInput(name, address, input);
+                callbacks.handleClientInput(stateId, name, address, input);
             } catch (JSONException e) {
                 throw new JSONParseException("Input message is malformed: " + json);
             }
