@@ -6,7 +6,6 @@ use log::warn;
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
-use tokio_native_tls::native_tls::TlsStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use crate::server::InternalMessage;
@@ -99,35 +98,39 @@ impl ClientConnection {
         client_close_connection(self.write, self.address, reason).await
     }
 
-    pub fn new(name: String, address: SocketAddr, write: WsWriteHalve) -> Self {
-        ClientConnection{ name, address, write }
+    pub fn new(name: String, address: SocketAddr, channel: Sender<InternalMessage>, write: WsWriteHalve) -> Self {
+        ClientConnection{ name, address, channel, write }
     }
 }
 
 /// Useful functions to interact with clients connected via websocket
 pub mod websockets {
     use std::net::SocketAddr;
+    #[cfg(not(feature = "insecure_ws"))]
     use std::sync::Arc;
     use futures_util::stream::{SplitSink, SplitStream};
     use futures_util::{SinkExt, StreamExt};
     use log::{error, info, warn};
+    #[cfg(not(feature = "insecure_ws"))]
     use tokio::fs::File;
+    #[cfg(not(feature = "insecure_ws"))]
     use tokio::io::AsyncReadExt;
     use tokio::net::{TcpListener, TcpStream};
     use tokio::sync::mpsc::Sender;
-    use tokio_native_tls::native_tls::{Identity, TlsAcceptor, TlsStream};
+    #[cfg(not(feature = "insecure_ws"))]
+    use tokio_native_tls::native_tls::{Identity, TlsAcceptor};
     use tokio_tungstenite::tungstenite::{Error, Message};
     use tokio_tungstenite::WebSocketStream;
     use crate::server::InternalMessage;
     use crate::server::messages::{BackendMessage, ClientMessage, encode_backend_msg, parse_client_msg};
-    use crate::server::networking::{ClientConnection, DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION, WSSink};
+    use crate::server::networking::{ClientConnection, DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION};
 
     type WSStream = SplitStream<WebSocketStream<TcpStream>>;
 
-    // #[cfg(not(feature = "insecure_ws"))]
+    #[cfg(not(feature = "insecure_ws"))]
     pub type TcpOrTlsStream = tokio_native_tls::TlsStream<TcpStream>;
-    // #[cfg(feature = "insecure_ws")]
-    // pub type TcpOrTlsStream = TcpStream;
+    #[cfg(feature = "insecure_ws")]
+    pub type TcpOrTlsStream = TcpStream;
     pub type WsReadHalve = SplitStream<WebSocketStream<TcpOrTlsStream>>;
     pub type WsWriteHalve = SplitSink<WebSocketStream<TcpOrTlsStream>, Message>;
 
@@ -145,7 +148,7 @@ pub mod websockets {
         tokio::spawn(listen(channel, listener));
     }
 
-    // #[cfg(not(feature = "insecure_ws"))]
+    #[cfg(not(feature = "insecure_ws"))]
     async fn create_tls_acceptor() -> Arc<tokio_native_tls::TlsAcceptor> {
         // TODO error handling
         let mut cert_file = File::open("res/cert/cert.pem").await.unwrap();
@@ -161,14 +164,14 @@ pub mod websockets {
         let identity = Identity::from_pkcs8(&cert_data, &key_data).unwrap();
 
         //let acceptor = TlsAcceptor::new(identity).unwrap();
-        let acceptor = tokio_native_tls::TlsAcceptor::from(native_tls::TlsAcceptor::builder(identity).build().unwrap());
+        let acceptor = tokio_native_tls::TlsAcceptor::from(TlsAcceptor::builder(identity).build().unwrap());
 
         info!("worked!");
 
         Arc::new(acceptor)
     }
 
-    // #[cfg(not(feature = "insecure_ws"))]
+    #[cfg(not(feature = "insecure_ws"))]
     async fn listen(channel: Sender<InternalMessage>, listener: TcpListener) {
         let tls_acceptor = create_tls_acceptor().await;
 
@@ -197,13 +200,9 @@ pub mod websockets {
 
     /// Waiting for incoming connections
     /// Incoming connections are forwarded to upgrade and login the client
-    // #[cfg(feature = "insecure_ws")]
-    /*async fn listen(channel: Sender<InternalMessage>, listener: TcpListener) {
+    #[cfg(feature = "insecure_ws")]
+    async fn listen(channel: Sender<InternalMessage>, listener: TcpListener) {
         // TODO nice terminate
-
-        if cfg!(not(feature = "insecure_ws")) {
-            let x = create_tls_acceptor().await;
-        }
 
         // Listen forever
         loop {
@@ -220,7 +219,7 @@ pub mod websockets {
             info!("listen(..): Client {} accepted", address);
             client_connecting(channel.clone(), stream, address).await;
         }
-    }*/
+    }
 
     /// Upgrade client connection and login
     /// First upgrades the connection to websocket
@@ -255,7 +254,7 @@ pub mod websockets {
             match tmp_msg {
                 ClientMessage::ClientLogin {name} => {
                     info!("client_connecting(..): Client {} sent 'ClientLogin'.", address);
-                    let client = ClientConnection::new(name, address, ws_write, channel.clone());
+                    let client = ClientConnection::new(name, address, channel.clone(), ws_write);
                     channel.send(InternalMessage::ClientConnected{read: ws_read, client}).await.expect("client_connecting(..): Sending internal message failed!");
                     return
                 }

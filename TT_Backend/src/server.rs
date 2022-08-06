@@ -8,21 +8,17 @@
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use futures_util::stream::SplitStream;
 use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio_tungstenite::WebSocketStream;
 use crate::server::messages::BackendMessage;
 use crate::server::networking::{ClientConnection, HostConnection};
 use crate::server::networking::tcp_sockets::{create_host_listener, host_socket_reader};
-use crate::server::networking::websockets::{client_socket_reader, create_client_listener};
+use crate::server::networking::websockets::{client_socket_reader, create_client_listener, WsReadHalve};
 
 pub mod networking;
 pub mod messages;
-
-type WSStream = SplitStream<WebSocketStream<TcpStream>>;
 
 pub struct Server {
     clients: HashMap<SocketAddr, ClientConnection>,
@@ -90,7 +86,7 @@ impl Server {
 
     }
 
-    async fn handle_client_connected(&mut self, read: WSStream, mut client: ClientConnection) {
+    async fn handle_client_connected(&mut self, read: WsReadHalve, mut client: ClientConnection) {
         info!("handle_client_connected(..): Client {} connected, name: {}", client.get_address_as_str(), client.get_name());
 
         if self.state.is_some() {
@@ -222,7 +218,7 @@ const CHANNEL_SIZE: usize = 16;
 
 #[derive(Debug)]
 pub enum InternalMessage {
-    ClientConnected{read: WSStream, client: ClientConnection},
+    ClientConnected{read: WsReadHalve, client: ClientConnection},
     ClientCloseConnection {address: SocketAddr, reason: &'static str},
     HostConnected{stream: TcpStream, address: SocketAddr},
     HostCloseConnection {address: SocketAddr, reason: &'static str},
