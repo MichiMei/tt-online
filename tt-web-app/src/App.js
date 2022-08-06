@@ -7,6 +7,14 @@ const client = new W3CWebSocket('ws://localhost:8080');
 
 class App extends Component {
 
+  constructor(props) {
+    super(props);
+    this.state = {fastReadToken: ""};
+  }
+
+  currentStateId = 0;
+  currentState = "None";
+
   sendLogin() {
     if (client.readyState === client.OPEN) {
       // TODO get real data
@@ -27,18 +35,85 @@ class App extends Component {
     };
     client.onmessage = (message) => {
       console.log("received: " + message.data.toString());
-      this.parseMessage(message)
+      this.handleMessage(message.data)
     };
   }
 
-  parseMessage(message) {
+  handleMessage(message) {
+    let json = JSON.parse(message);
 
+    switch (json.type) {
+      case "Disconnect":
+        this.handleDisconnect(json);
+        break;
+      case "Update":
+        this.handleUpdate(json);
+        break;
+      case "ChangeState":
+        this.handleStateChange(json);
+        break;
+      default:
+        console.warn("received bad message: type " + json.type + " is not supported");
+        break;
+    }
+  }
+
+  handleDisconnect(json) {
+    let reason = json.reason;
+    console.warn("backend closed connection: " + reason);
+    // TODO send disconnect to backend
+    // TODO close websocket
+    // TODO ask user if should try reconnect
+  }
+
+  handleUpdate(json) {
+    let stateId = json.state_id;
+    let update = JSON.parse(json.content);
+
+    if (this.currentStateId !== stateId) {
+      console.warn("received outdated update: got " + stateId + ", expected " + this.currentStateId);
+    } else if (this.currentState !== "ActivityFastRead") {
+      console.warn("received update for unsupported state " + this.currentState);
+    } else {
+      console.log("backend sent update: " + update)
+      clearTimeout(this.timerFastRead);
+
+      let duration = update.duration;
+      let token = update.token;
+
+      this.setState({fastReadToken: token});
+      this.timerFastRead = setTimeout(
+          () => {
+            this.setState({fastReadToken: ""});
+          },
+          duration
+      );
+    }
+  }
+
+  handleStateChange(json) {
+    let stateId = json.state_id;
+    let state = json.content;
+
+    if (state === "None" || state === "ActivityFastRead") {
+      this.currentStateId = stateId;
+      this.currentState = state;
+      console.log("changed state to " + state);
+    } else {
+      console.warn("received unsupported state change: " + state);
+    }
   }
 
   render() {
     return (
         <div>
-          Practical Intro To WebSockets.
+          <h1>
+            <center>
+              {
+                this.state.fastReadToken
+              }
+            </center>
+          </h1>
         </div>
     );
   }
