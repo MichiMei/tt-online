@@ -2,6 +2,7 @@ package controller.activities;
 
 import gui.MainFrame;
 import gui.activities.FastReadPanel;
+import org.json.JSONObject;
 
 public class FastReadController implements ActivityController, FastReadPanel.ControllerCallbacks {
     private final FastReadPanel gui;
@@ -20,7 +21,16 @@ public class FastReadController implements ActivityController, FastReadPanel.Con
     }
 
     @Override
-    public void displayPressed(String token) {
-        callbacks.sendUpdate(token);
+    public void displayPressed(String token, int duration) {
+        JSONObject json = new JSONObject();
+        json.put("token", token);
+        json.put("duration", duration);
+        String message = json.toString();
+        callbacks.sendUpdate(message);
+    }
+
+    @Override
+    public void quitPressed() {
+        callbacks.endActivity();
     }
 }

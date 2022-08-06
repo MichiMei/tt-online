@@ -1,5 +1,7 @@
 package gui.activities;
 
+import gui.components.ImprovedFormattedTextField;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -8,6 +10,8 @@ import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Highlighter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.text.NumberFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -15,7 +19,9 @@ import java.util.function.Function;
 
 public class FastReadPanel extends JPanel {
     public interface ControllerCallbacks {
-        void displayPressed(String token);
+        void displayPressed(String token, int duration);
+
+        void quitPressed();
     }
 
     private JPanel mainPanel;
@@ -31,6 +37,7 @@ public class FastReadPanel extends JPanel {
     private final ControllerCallbacks callbacks;
     private final ResourceBundle strLiterals = ResourceBundle.getBundle("StringLiterals");
     private final Tokenizer tokenizer;
+    private ImprovedFormattedTextField timeSelector;
 
     public FastReadPanel(ControllerCallbacks callbacks) {
         super();
@@ -38,24 +45,39 @@ public class FastReadPanel extends JPanel {
         add(mainPanel, BorderLayout.CENTER);
         this.callbacks = callbacks;
 
+        createTimeSelector();
+
         tokenizer = new Tokenizer(textArea, separatorSelection);
 
-        displayButton.addActionListener(e -> {
-            try {
-                displayPressed(tokenizer.getSelected());
-            } catch (Tokenizer.EmptyTokenSelectedException ex) {
-                // TODO handle exception
-                throw new RuntimeException(ex);
-            }
-        });
+        displayButton.addActionListener(e -> displayPressed());
         nextButton.addActionListener(e -> tokenizer.selectNext());
         previousButton.addActionListener(e -> tokenizer.selectPrev());
+        quitButton.addActionListener(e -> callbacks.quitPressed());
 
         this.setVisible(true);
     }
 
-    private void displayPressed(String token) {
-        callbacks.displayPressed(token);
+    private void createTimeSelector() {
+        NumberFormat integerNumberInstance = NumberFormat.getNumberInstance();
+        integerNumberInstance.setGroupingUsed(false);
+        integerNumberInstance.setParseIntegerOnly(true);
+        timeSelector = new ImprovedFormattedTextField(integerNumberInstance, 100);
+        timeSelectionPanel.add(timeSelector, BorderLayout.CENTER);
+    }
+
+    private void displayPressed() {
+        try {
+            String token = tokenizer.getSelected();
+            NumberFormat numberFormat = NumberFormat.getNumberInstance();
+            int duration = numberFormat.parse(timeSelector.getText()).intValue();
+            callbacks.displayPressed(token, duration);
+        } catch (Tokenizer.EmptyTokenSelectedException ex) {
+            // TODO handle exception
+            throw new RuntimeException(ex);
+        } catch (ParseException ex) {
+            throw new RuntimeException(ex);
+            // TODO handle exception
+        }
     }
 
     private class Tokenizer {

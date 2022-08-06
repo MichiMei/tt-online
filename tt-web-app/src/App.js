@@ -2,8 +2,8 @@
 import React, { Component } from 'react';
 import { w3cwebsocket as W3CWebSocket } from "websocket";
 
-const client = new W3CWebSocket('wss://coding-capricorn.de:8080');
-//const client = new W3CWebSocket('wss://localhost:8080');
+//const client = new W3CWebSocket('wss://coding-capricorn.de:8080');
+const client = new W3CWebSocket('ws://localhost:8080');
 
 class App extends Component {
 
@@ -20,13 +20,6 @@ class App extends Component {
     }
   }
 
-  sendHello() {
-    if (client.readyState === client.OPEN) {
-      console.log("sent: Hello World!")
-      client.send("{\"type\":\"ClientLogin\",\"name\":\"test_name\"}");
-    }
-  }
-
   componentDidMount() {
     client.onopen = () => {
       console.log('componentDidMount(..): WebSocket Client Connected');
@@ -34,7 +27,12 @@ class App extends Component {
     };
     client.onmessage = (message) => {
       console.log("received: " + message.data.toString());
+      this.parseMessage(message)
     };
+  }
+
+  parseMessage(message) {
+
   }
 
   render() {
