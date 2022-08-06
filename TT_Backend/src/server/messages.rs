@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 pub enum ClientMessage {
     ClientLogin{ name: String },
     Disconnect { reason: String },
-    Input{ content: String },
+    Input{ state_id: i32, content: String },
 }
 
 impl Display for ClientMessage {
@@ -20,8 +20,8 @@ impl Display for ClientMessage {
 #[derive(Debug, Clone)]
 pub enum HostMessage {
     Disconnect { reason: String },
-    Update { content: String },
-    ChangeState { content: String },
+    Update { state_id: i32, content: String },
+    ChangeState { state_id: i32, content: String },
 }
 
 impl Display for HostMessage {
@@ -36,9 +36,9 @@ pub enum BackendMessage {
     ClientConnected { name: String, address: String },
     ClientDisconnected { name: String, address: String, reason: String },
     Disconnect { reason: String },
-    Input { input: String, name: String, address: String },
-    Update { content: String },
-    ChangeState { content: String },
+    Input { state_id: i32, input: String, name: String, address: String },
+    Update { state_id: i32, content: String },
+    ChangeState { state_id: i32, content: String },
 }
 
 impl Display for BackendMessage {
@@ -56,32 +56,36 @@ pub fn parse_client_msg(msg_str: &str) -> Option<ClientMessage> {
         }
     };
 
-    let type_str = match get_value(&json, "type") {
+    let type_str = match get_string(&json, "type") {
         None => return None,
         Some(v) => v
     };
 
     match type_str.as_str() {
         "ClientLogin" => {
-            let name = match get_value(&json, "name") {
+            let name = match get_string(&json, "name") {
                 None => return None,
                 Some(v) => v
             };
             Some(ClientMessage::ClientLogin{name})
         }
         "Disconnecting" => {
-            let reason = match get_value(&json, "reason") {
+            let reason = match get_string(&json, "reason") {
                 None => return None,
                 Some(v) => v
             };
             Some(ClientMessage::Disconnect {reason})
         }
         "Input" => {
-            let content = match get_value(&json, "content") {
+            let state_id = match get_i32(&json, "state_id") {
                 None => return None,
                 Some(v) => v
             };
-            Some(ClientMessage::Input{content})
+            let content = match get_string(&json, "content") {
+                None => return None,
+                Some(v) => v
+            };
+            Some(ClientMessage::Input{state_id, content})
         }
         _ => {
             warn!("parse_client_msg(..): Message 'type' {} is not supported!\nmsg: {}", type_str, msg_str);
@@ -99,32 +103,40 @@ pub fn parse_host_msg(msg_str: &str) -> Option<HostMessage> {
         }
     };
 
-    let type_str = match get_value(&json, "type") {
+    let type_str = match get_string(&json, "type") {
         None => return None,
         Some(v) => v
     };
 
     match type_str.as_str() {
         "Disconnecting" => {
-            let reason = match get_value(&json, "reason") {
+            let reason = match get_string(&json, "reason") {
                 None => return None,
                 Some(v) => v
             };
             Some(HostMessage::Disconnect {reason})
         }
         "Update" => {
-            let content = match get_value(&json, "content") {
+            let state_id = match get_i32(&json, "state_id") {
                 None => return None,
                 Some(v) => v
             };
-            Some(HostMessage::Update{content})
+            let content = match get_string(&json, "content") {
+                None => return None,
+                Some(v) => v
+            };
+            Some(HostMessage::Update{state_id, content})
         }
         "ChangeState" => {
-            let content = match get_value(&json, "content") {
+            let state_id = match get_i32(&json, "state_id") {
                 None => return None,
                 Some(v) => v
             };
-            Some(HostMessage::ChangeState{content})
+            let content = match get_string(&json, "content") {
+                None => return None,
+                Some(v) => v
+            };
+            Some(HostMessage::ChangeState{state_id, content})
         }
         _ => {
             warn!("parse_host_msg(..): Message 'type' {} is not supported!\nmsg: {}", type_str, msg_str);
@@ -156,30 +168,33 @@ pub fn encode_backend_msg(msg: BackendMessage) -> String {
             json["reason"] = json!(reason);
             String::from(json.to_string())
         }
-        BackendMessage::Input{input, name, address} => {
+        BackendMessage::Input{state_id, input, name, address} => {
             let mut json = json!(null);
             json["type"] = json!("Input");
+            json["state_id"] = json!(state_id);
             json["input"] = json!(input);
             json["name"] = json!(name);
             json["address"] = json!(address);
             String::from(json.to_string())
         }
-        BackendMessage::Update{content} => {
+        BackendMessage::Update{state_id, content} => {
             let mut json = json!(null);
             json["type"] = json!("Update");
+            json["state_id"] = json!(state_id);
             json["content"] = json!(content);
             String::from(json.to_string())
         }
-        BackendMessage::ChangeState{content} => {
+        BackendMessage::ChangeState{state_id, content} => {
             let mut json = json!(null);
             json["type"] = json!("ChangeState");
+            json["state_id"] = json!(state_id);
             json["content"] = json!(content);
             String::from(json.to_string())
         }
     }
 }
 
-fn get_value(json: &Value, key: &str) -> Option<String> {
+fn get_string(json: &Value, key: &str) -> Option<String> {
     let value = json[key].clone();
     if value.is_null() {
         warn!("get_value(..): Message is malformed, missing '{}' field!\nmsg: {}", key, json.to_string());
@@ -195,4 +210,22 @@ fn get_value(json: &Value, key: &str) -> Option<String> {
     };
 
     Some(String::from(value_str))
+}
+
+fn get_i32(json: &Value, key: &str) -> Option<i32> {
+    let value = json[key].clone();
+    if value.is_null() {
+        warn!("get_value(..): Message is malformed, missing '{}' field!\nmsg: {}", key, json.to_string());
+        return None
+    }
+
+    let value_i64 = match value.as_i64() {
+        None => {
+            warn!("get_value(..): Message is malformed, '{}' field contains not an Integer!\nmsg: {}", key, json.to_string());
+            return None
+        }
+        Some(v) => v
+    };
+
+    Some(value_i64 as i32)
 }

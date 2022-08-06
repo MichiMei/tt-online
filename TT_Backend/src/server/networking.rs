@@ -359,8 +359,8 @@ pub mod websockets {
                     channel.send(InternalMessage::ClientCloseConnection {address, reason: DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY}).await.expect("websocket_listen(..): Sending internal message failed!");
                     return;
                 }
-                ClientMessage::Input {content} => {
-                    channel.send(InternalMessage::ClientInput {address, content}).await.expect("client_socket_reader(..): Sending internal message failed");
+                ClientMessage::Input {state_id, content} => {
+                    channel.send(InternalMessage::ClientInput {state_id, address, content}).await.expect("client_socket_reader(..): Sending internal message failed");
                 }
             }
         }
@@ -515,13 +515,13 @@ pub mod tcp_sockets {
                     channel.send(InternalMessage::HostCloseConnection {address, reason: DISCONNECT_REASON_HOST_CLOSED_GRACEFULLY}).await.expect("host_socket_reader(..): Sending internal message failed");
                     break;
                 }
-                HostMessage::Update { content } => {
+                HostMessage::Update { state_id, content } => {
                     info!("host_socket_reader(..): Host {} send Update {}", address, content);
-                    channel.send(InternalMessage::HostUpdate { address, content }).await.expect("host_socket_reader(..): Sending internal message failed");
+                    channel.send(InternalMessage::HostUpdate { state_id, address, content }).await.expect("host_socket_reader(..): Sending internal message failed");
                 }
-                HostMessage::ChangeState { content } => {
+                HostMessage::ChangeState { state_id, content } => {
                     info!("host_socket_reader(..): Host {} send ChangeState {}", address, content);
-                    channel.send(InternalMessage::HostChangeState { address, content }).await.expect("host_socket_reader(..): Sending internal message failed");
+                    channel.send(InternalMessage::HostChangeState { state_id, address, content }).await.expect("host_socket_reader(..): Sending internal message failed");
                 }
             }
         }
