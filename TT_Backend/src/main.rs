@@ -14,8 +14,6 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-
-
 /*
 use crate::server::messages::ClientMessage;
 fn main() {

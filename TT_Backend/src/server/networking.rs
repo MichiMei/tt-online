@@ -6,12 +6,13 @@ use log::warn;
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
+use tokio_native_tls::native_tls::TlsStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use crate::server::InternalMessage;
 use crate::server::messages::BackendMessage;
 use crate::server::networking::tcp_sockets::{host_close_connection, host_send_message};
-use crate::server::networking::websockets::{client_close_connection, client_send_message};
+use crate::server::networking::websockets::{client_close_connection, client_send_message, WsWriteHalve};
 
 pub const DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY: &str = "Connection closed gracefully by client";
 pub const DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY: &str = "Connection closed forcefully by client";
@@ -65,8 +66,8 @@ impl HostConnection {
 pub struct ClientConnection {
     name: String,
     address: SocketAddr,
-    write: WSSink,
     channel: Sender<InternalMessage>,
+    write: WsWriteHalve,
 }
 
 impl ClientConnection {
@@ -98,19 +99,23 @@ impl ClientConnection {
         client_close_connection(self.write, self.address, reason).await
     }
 
-    pub fn new(name: String, address: SocketAddr, write: WSSink, channel: Sender<InternalMessage>) -> Self {
-        ClientConnection{ name, address, write, channel }
+    pub fn new(name: String, address: SocketAddr, write: WsWriteHalve) -> Self {
+        ClientConnection{ name, address, write }
     }
 }
 
 /// Useful functions to interact with clients connected via websocket
 pub mod websockets {
     use std::net::SocketAddr;
-    use futures_util::stream::SplitStream;
+    use std::sync::Arc;
+    use futures_util::stream::{SplitSink, SplitStream};
     use futures_util::{SinkExt, StreamExt};
     use log::{error, info, warn};
+    use tokio::fs::File;
+    use tokio::io::AsyncReadExt;
     use tokio::net::{TcpListener, TcpStream};
     use tokio::sync::mpsc::Sender;
+    use tokio_native_tls::native_tls::{Identity, TlsAcceptor, TlsStream};
     use tokio_tungstenite::tungstenite::{Error, Message};
     use tokio_tungstenite::WebSocketStream;
     use crate::server::InternalMessage;
@@ -118,6 +123,14 @@ pub mod websockets {
     use crate::server::networking::{ClientConnection, DISCONNECT_REASON_CLI_CLOSED_FORCEFULLY, DISCONNECT_REASON_CLI_CLOSED_GRACEFULLY, DISCONNECT_REASON_VIOLATION, WSSink};
 
     type WSStream = SplitStream<WebSocketStream<TcpStream>>;
+
+    // #[cfg(not(feature = "insecure_ws"))]
+    pub type TcpOrTlsStream = tokio_native_tls::TlsStream<TcpStream>;
+    // #[cfg(feature = "insecure_ws")]
+    // pub type TcpOrTlsStream = TcpStream;
+    pub type WsReadHalve = SplitStream<WebSocketStream<TcpOrTlsStream>>;
+    pub type WsWriteHalve = SplitSink<WebSocketStream<TcpOrTlsStream>, Message>;
+
 
     /// Create a listener on the websocket port waiting for client connections
     pub async fn create_client_listener(channel: Sender<InternalMessage>, ip: &str, port: u16) {
@@ -132,10 +145,65 @@ pub mod websockets {
         tokio::spawn(listen(channel, listener));
     }
 
+    // #[cfg(not(feature = "insecure_ws"))]
+    async fn create_tls_acceptor() -> Arc<tokio_native_tls::TlsAcceptor> {
+        // TODO error handling
+        let mut cert_file = File::open("res/cert/cert.pem").await.unwrap();
+        let mut cert_data = vec![];
+        let x = cert_file.read_to_end(&mut cert_data).await.unwrap();
+        info!("create_tls_acceptor(..): reading cert successful, {} bytes", x);
+
+        let mut key_file = File::open("res/cert/key.pem").await.unwrap();
+        let mut key_data = vec![];
+        let x = key_file.read_to_end(&mut key_data).await.unwrap();
+        info!("create_tls_acceptor(..): reading key successful, {} bytes", x);
+
+        let identity = Identity::from_pkcs8(&cert_data, &key_data).unwrap();
+
+        //let acceptor = TlsAcceptor::new(identity).unwrap();
+        let acceptor = tokio_native_tls::TlsAcceptor::from(native_tls::TlsAcceptor::builder(identity).build().unwrap());
+
+        info!("worked!");
+
+        Arc::new(acceptor)
+    }
+
+    // #[cfg(not(feature = "insecure_ws"))]
+    async fn listen(channel: Sender<InternalMessage>, listener: TcpListener) {
+        let tls_acceptor = create_tls_acceptor().await;
+
+        // Listen forever
+        loop {
+            let (stream, address) = match listener.accept().await {
+                Ok(v) => v,
+                Err(e) => {
+                    warn!("listen(..): Could not accept connection\nError: {}", e);
+                    continue
+                },
+            };
+
+            let tls_acceptor = tls_acceptor.clone();
+            let x = match tls_acceptor.accept(stream).await {
+                Ok(v) => v,
+                Err(e) => {
+                    warn!("listen(..): Could not accept TLS connection\nError: {}", e);
+                    continue
+                },
+            };
+
+            client_connecting(channel.clone(), x, address).await;
+        }
+    }
+
     /// Waiting for incoming connections
     /// Incoming connections are forwarded to upgrade and login the client
-    async fn listen(channel: Sender<InternalMessage>, listener: TcpListener) {
+    // #[cfg(feature = "insecure_ws")]
+    /*async fn listen(channel: Sender<InternalMessage>, listener: TcpListener) {
         // TODO nice terminate
+
+        if cfg!(not(feature = "insecure_ws")) {
+            let x = create_tls_acceptor().await;
+        }
 
         // Listen forever
         loop {
@@ -152,13 +220,13 @@ pub mod websockets {
             info!("listen(..): Client {} accepted", address);
             client_connecting(channel.clone(), stream, address).await;
         }
-    }
+    }*/
 
     /// Upgrade client connection and login
     /// First upgrades the connection to websocket
     /// Then waits for a 'ClientLogin' message, all messages before will be dropped (except Disconnect)
     /// Once the login is successful triggers the 'ClientConnected' event
-    async fn client_connecting(channel: Sender<InternalMessage>, stream: TcpStream, address: SocketAddr) {
+    async fn client_connecting(channel: Sender<InternalMessage>, stream: TcpOrTlsStream, address: SocketAddr) {
         info!("client_connecting(..): Client {} connected", address);
 
         // Upgrade to websocket
@@ -205,7 +273,7 @@ pub mod websockets {
 
     /// Returns the next parsable json message
     /// Will drop non-text or malformed messages
-    pub async fn client_get_next_json(reader: &mut WSStream, address: SocketAddr) -> Option<ClientMessage> {
+    pub async fn client_get_next_json(reader: &mut WsReadHalve, address: SocketAddr) -> Option<ClientMessage> {
         // TODO find out how closed behaviour and return None
         loop {
             // Get next message
@@ -241,7 +309,7 @@ pub mod websockets {
     }
 
     /// Closes the connection, ignoring possible errors
-    pub async fn client_close_connection(mut writer: WSSink, address: SocketAddr, reason: &str) {
+    pub async fn client_close_connection(mut writer: WsWriteHalve, address: SocketAddr, reason: &str) {
         let reason = String::from(reason);
         match client_send_message(&mut writer, BackendMessage::Disconnect {reason}).await {
             Ok(_) => {}
@@ -260,7 +328,7 @@ pub mod websockets {
     /// Send the BackendMessage to the client (connected to the given websocket)
     /// Transforms the BackendMessage to the correct format.
     /// Forwards any sending errors
-    pub async fn client_send_message(writer: &mut WSSink, msg_enum: BackendMessage) -> Result<(), Error> {
+    pub async fn client_send_message(writer: &mut WsWriteHalve, msg_enum: BackendMessage) -> Result<(), Error> {
         let msg_str = encode_backend_msg(msg_enum);
         let msg = Message::from(msg_str);
         writer.send(msg).await
@@ -268,7 +336,7 @@ pub mod websockets {
 
     /// Reads all messages from the given socket
     /// Each valid message triggers the according event
-    pub async fn client_socket_reader(channel: Sender<InternalMessage>, mut reader: WSStream, address: SocketAddr) {
+    pub async fn client_socket_reader(channel: Sender<InternalMessage>, mut reader: WsReadHalve, address: SocketAddr) {
         // Read forever (until closed by client)
         loop {
             // Get next message

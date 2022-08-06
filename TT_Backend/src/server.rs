@@ -87,6 +87,7 @@ impl Server {
             InternalMessage::HostChangeState {address, content} =>
                 self.handle_host_change_state(address, content).await,
         }
+
     }
 
     async fn handle_client_connected(&mut self, read: WSStream, mut client: ClientConnection) {
